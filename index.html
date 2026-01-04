@@ -393,11 +393,21 @@
     }
     .dev-badge svg{ width:12px; height:12px; }
 
+    /* Message context menu */
+    #messageContextMenu{ position:fixed; display:none; z-index:75; border-radius:16px; background:rgba(15,23,42,.95); border:1px solid rgba(148,163,184,.18); box-shadow: 0 14px 40px rgba(0,0,0,.45); min-width: 180px; overflow:hidden; }
+    #messageContextMenu.show{ display:block; }
+    .context-menu-btn{ width:100%; display:flex; align-items:center; gap:10px; padding:12px 16px; border:none; background:transparent; color:#e5e7eb; cursor:pointer; font-size:14px; transition: background .15s; }
+    .context-menu-btn:hover{ background:rgba(148,163,184,.12); }
+    .context-menu-btn.text-red-400{ color:#f87171; }
+    .context-menu-btn.text-red-400:hover{ background:rgba(248,113,113,.12); }
+    .context-menu-divider{ height:1px; background:rgba(148,163,184,.15); margin:4px 0; }
+
     /* Reaction picker */
-    #reactionsPicker{ position:fixed; display:none; z-index:75; padding:8px; border-radius:16px; background:rgba(15,23,42,.92); border:1px solid rgba(148,163,184,.18); box-shadow: 0 14px 40px rgba(0,0,0,.45); }
-    #reactionsPicker.show{ display:block; }
     .reaction-btn{ font-size:22px; padding:6px; border-radius:12px; border:none; background:transparent; cursor:pointer; transition: transform .15s; }
     .reaction-btn:hover{ background:rgba(148,163,184,.12); transform:scale(1.15); }
+
+    /* Edited message indicator */
+    .edited-indicator{ font-size:11px; color:rgba(148,163,184,.7); font-style:italic; }
 
     /* Image viewer */
     #imageViewer{ position:fixed; inset:0; display:none; align-items:center; justify-content:center; z-index:90; background:rgba(0,0,0,.95); padding:16px; }
@@ -469,6 +479,125 @@
     @keyframes fade{ from{ opacity:0; transform: translateY(8px);} to{ opacity:1; transform: translateY(0);} }
     
     .truncate-2{ display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+
+    /* Запрет выделения текста */
+    body, .bubble, .msg-text, #chatList, #messagesContainer {
+      -webkit-user-select: none;
+      -moz-user-select: none;
+      -ms-user-select: none;
+      user-select: none;
+    }
+
+    /* Разрешаем выделение в полях ввода */
+    input, textarea {
+      -webkit-user-select: text;
+      -moz-user-select: text;
+      -ms-user-select: text;
+      user-select: text;
+    }
+
+    /* Confirm Modal */
+    #confirmModal {
+      position: fixed;
+      inset: 0;
+      display: none;
+      align-items: center;
+      justify-content: center;
+      z-index: 100;
+      background: rgba(0,0,0,.7);
+      backdrop-filter: blur(6px);
+      padding: 16px;
+    }
+    #confirmModal.show { display: flex; }
+    .confirm-box {
+      width: 100%;
+      max-width: 320px;
+      border-radius: 20px;
+      background: rgba(15,23,42,.98);
+      border: 1px solid rgba(148,163,184,.18);
+      box-shadow: 0 20px 60px rgba(0,0,0,.5);
+      overflow: hidden;
+      animation: fade .2s ease;
+    }
+    .confirm-box .confirm-header {
+      padding: 20px 20px 12px;
+      text-align: center;
+    }
+    .confirm-box .confirm-icon {
+      width: 56px;
+      height: 56px;
+      border-radius: 50%;
+      background: rgba(239,68,68,.15);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      margin: 0 auto 12px;
+    }
+    .confirm-box .confirm-icon svg {
+      width: 28px;
+      height: 28px;
+      color: #f87171;
+    }
+    .confirm-box .confirm-title {
+      font-size: 17px;
+      font-weight: 600;
+      margin-bottom: 6px;
+    }
+    .confirm-box .confirm-text {
+      font-size: 14px;
+      color: #9ca3af;
+      line-height: 1.4;
+    }
+    .confirm-box .confirm-buttons {
+      display: flex;
+      border-top: 1px solid rgba(148,163,184,.15);
+    }
+    .confirm-box .confirm-btn {
+      flex: 1;
+      padding: 14px;
+      border: none;
+      background: transparent;
+      font-size: 15px;
+      font-weight: 500;
+      cursor: pointer;
+      transition: background .15s;
+    }
+    .confirm-box .confirm-btn:first-child {
+      color: #9ca3af;
+      border-right: 1px solid rgba(148,163,184,.15);
+    }
+    .confirm-box .confirm-btn:first-child:hover {
+      background: rgba(148,163,184,.1);
+    }
+    .confirm-box .confirm-btn.danger {
+      color: #f87171;
+    }
+    .confirm-box .confirm-btn.danger:hover {
+      background: rgba(239,68,68,.15);
+    }
+
+    /* Toast для копирования */
+    .copy-toast {
+      position: fixed;
+      bottom: 100px;
+      left: 50%;
+      transform: translateX(-50%);
+      background: rgba(15,23,42,.95);
+      border: 1px solid rgba(148,163,184,.2);
+      border-radius: 12px;
+      padding: 10px 20px;
+      font-size: 14px;
+      color: #e5e7eb;
+      z-index: 200;
+      animation: fadeInUp .2s ease;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    @keyframes fadeInUp {
+      from { opacity: 0; transform: translate(-50%, 10px); }
+      to { opacity: 1; transform: translate(-50%, 0); }
+    }
   </style>
 </head>
 <body>
@@ -667,15 +796,64 @@
       </div>
     </div>
 
-    <!-- Reactions Picker -->
-    <div id="reactionsPicker" class="fade-in">
-      <div class="flex gap-1">
+    <!-- Message Context Menu -->
+    <div id="messageContextMenu" class="fade-in">
+      <button onclick="copyMessage()" id="copyMessageBtn" class="context-menu-btn">
+        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"/></svg>
+        <span>Скопировать</span>
+      </button>
+      <button onclick="startEditMessage()" id="editMessageBtn" class="context-menu-btn">
+        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/></svg>
+        <span>Редактировать</span>
+      </button>
+      <button onclick="deleteMessage()" id="deleteMessageBtn" class="context-menu-btn text-red-400">
+        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg>
+        <span>Удалить</span>
+      </button>
+      <div class="context-menu-divider"></div>
+      <div class="flex gap-1 p-2">
         <button class="reaction-btn" onclick="addReaction('👍')">👍</button>
         <button class="reaction-btn" onclick="addReaction('❤️')">❤️</button>
         <button class="reaction-btn" onclick="addReaction('😂')">😂</button>
         <button class="reaction-btn" onclick="addReaction('😮')">😮</button>
         <button class="reaction-btn" onclick="addReaction('😢')">😢</button>
         <button class="reaction-btn" onclick="addReaction('🔥')">🔥</button>
+      </div>
+    </div>
+
+    <!-- Confirm Delete Modal -->
+    <div id="confirmModal">
+      <div class="confirm-box">
+        <div class="confirm-header">
+          <div class="confirm-icon">
+            <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/>
+            </svg>
+          </div>
+          <div class="confirm-title">Удалить сообщение?</div>
+          <div class="confirm-text">Сообщение будет удалено для всех участников чата</div>
+        </div>
+        <div class="confirm-buttons">
+          <button class="confirm-btn" onclick="closeConfirmModal()">Отмена</button>
+          <button class="confirm-btn danger" onclick="confirmDeleteMessage()">Удалить</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Edit Message Modal -->
+    <div id="editMessageModal" class="modal" onclick="modalBackdropClose(event, 'editMessageModal')">
+      <div class="sheet p-4">
+        <div class="flex justify-between items-center mb-4">
+          <h3 class="text-lg font-bold">Редактировать сообщение</h3>
+          <button class="icon-btn" onclick="closeModal('editMessageModal')">
+            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
+          </button>
+        </div>
+        <textarea id="editMessageText" class="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 outline-none focus:border-violet-500 resize-none h-32" placeholder="Текст сообщения..."></textarea>
+        <div class="flex gap-2 mt-4">
+          <button class="flex-1 py-2.5 bg-white/5 rounded-xl text-slate-400 hover:bg-white/10" onclick="closeModal('editMessageModal')">Отмена</button>
+          <button class="flex-1 py-2.5 gradient-bg rounded-xl font-semibold hover:opacity-95" onclick="saveEditedMessage()">Сохранить</button>
+        </div>
       </div>
     </div>
 
@@ -1490,6 +1668,13 @@
       database.ref(`messages/${chatId}`).on('child_changed', snap => {
         updateMessageUI(snap.val(), snap.key);
       });
+
+      // Слушатель для удалённых сообщений
+      database.ref(`messages/${chatId}`).on('child_removed', snap => {
+        const msgId = snap.key;
+        const msgEl = document.getElementById(`msg-${msgId}`);
+        if(msgEl) msgEl.remove();
+      });
     }
 
     function getReadIcon(msg){
@@ -1564,6 +1749,7 @@
       }
 
       const reactionsHtml = getReactionsHtml(msgId, msg);
+      const editedHtml = msg.edited ? '<span class="edited-indicator">изм.</span>' : '';
 
       const row = document.createElement('div');
       row.className = `message-row ${isOwn ? 'out' : 'in'} fade-in`;
@@ -1575,6 +1761,7 @@
           <div class="bubble ${isOwn ? 'out' : 'in'}" oncontextmenu="showReactions(event,'${msgId}')" onclick="handleMessageTap(event,'${msgId}')">
             ${content}
             <div class="meta">
+              ${editedHtml}
               <span class="time">${formatTime(msg.timestamp)}</span>
               ${isOwn ? getReadIcon(msg) : ''}
             </div>
@@ -1595,6 +1782,22 @@
       const bubble = el.querySelector('.bubble');
       if(!bubble) return;
 
+      // Обновляем текст сообщения если он изменился
+      const textEl = bubble.querySelector('.msg-text');
+      if(textEl && msg.text !== undefined){
+        textEl.textContent = msg.text;
+      }
+
+      // Обновляем индикатор "изменено"
+      const meta = bubble.querySelector('.meta');
+      if(meta){
+        let editedEl = meta.querySelector('.edited-indicator');
+        if(msg.edited && !editedEl){
+          meta.insertAdjacentHTML('afterbegin', '<span class="edited-indicator">изм.</span>');
+        }
+      }
+
+      // Обновляем реакции
       const existing = bubble.querySelector('.flex.flex-wrap');
       const reactionsHtml = getReactionsHtml(msgId, msg);
       if(reactionsHtml){
@@ -1607,7 +1810,7 @@
         if(existing) existing.remove();
       }
 
-      const meta = bubble.querySelector('.meta');
+      // Обновляем иконку прочтения
       if(meta && msg.senderId === currentUser.uid){
         const icon = meta.querySelector('svg');
         if(icon) icon.outerHTML = getReadIcon(msg);
@@ -1625,26 +1828,201 @@
       lastTap = now;
     }
 
-    function showReactions(e, msgId){
+    let messageToDelete = null;
+    let currentMessageText = '';
+
+    function showMessageContextMenu(e, msgId, isOwn){
       e.preventDefault();
       currentMessageId = msgId;
-      const picker = $('reactionsPicker');
-      picker.classList.add('show');
+      const menu = $('messageContextMenu');
+      
+      // Показываем кнопки редактирования и удаления только для своих сообщений
+      const editBtn = $('editMessageBtn');
+      const deleteBtn = $('deleteMessageBtn');
+      editBtn.style.display = isOwn ? 'flex' : 'none';
+      deleteBtn.style.display = isOwn ? 'flex' : 'none';
+      
+      // Получаем текст сообщения для копирования
+      database.ref(`messages/${currentChat}/${msgId}`).once('value', snap => {
+        const msg = snap.val();
+        currentMessageText = msg?.text || '';
+      });
+      
+      menu.classList.add('show');
 
       const rect = e.target.getBoundingClientRect();
-      const w = 240;
-      const left = Math.max(10, Math.min(rect.left, window.innerWidth - w - 10));
-      const top = Math.max(10, rect.top - 58);
-      picker.style.left = left + 'px';
-      picker.style.top = top + 'px';
+      const menuWidth = 200;
+      const menuHeight = isOwn ? 220 : 130;
+      
+      let left = Math.min(rect.left, window.innerWidth - menuWidth - 10);
+      left = Math.max(10, left);
+      
+      let top = rect.top - menuHeight;
+      if(top < 10) top = rect.bottom + 10;
+      
+      menu.style.left = left + 'px';
+      menu.style.top = top + 'px';
 
       setTimeout(() => {
-        document.addEventListener('click', hideReactions, { once:true });
+        document.addEventListener('click', hideMessageContextMenu, { once:true });
       }, 0);
     }
 
+    function hideMessageContextMenu(){
+      $('messageContextMenu').classList.remove('show');
+    }
+
+    async function startEditMessage(){
+      hideMessageContextMenu();
+      if(!currentMessageId || !currentChat) return;
+      
+      // Получаем текст сообщения
+      const snap = await database.ref(`messages/${currentChat}/${currentMessageId}`).once('value');
+      const msg = snap.val();
+      
+      if(!msg || msg.senderId !== currentUser.uid) {
+        showToast('❌', 'Ошибка', 'Вы можете редактировать только свои сообщения');
+        return;
+      }
+      
+      $('editMessageText').value = msg.text || '';
+      showModal('editMessageModal');
+    }
+
+    async function saveEditedMessage(){
+      const newText = $('editMessageText').value.trim();
+      
+      if(!currentMessageId || !currentChat) {
+        closeModal('editMessageModal');
+        return;
+      }
+      
+      try {
+        await database.ref(`messages/${currentChat}/${currentMessageId}`).update({
+          text: newText,
+          edited: true,
+          editedAt: firebase.database.ServerValue.TIMESTAMP
+        });
+        
+        closeModal('editMessageModal');
+        showToast('✅', 'Успешно', 'Сообщение изменено');
+      } catch(err) {
+        console.error('Edit message error:', err);
+        showToast('❌', 'Ошибка', 'Не удалось изменить сообщение');
+      }
+    }
+
+    async function copyMessage(){
+      hideMessageContextMenu();
+      if(!currentMessageText) {
+        // Пробуем получить текст сообщения
+        const snap = await database.ref(`messages/${currentChat}/${currentMessageId}`).once('value');
+        const msg = snap.val();
+        currentMessageText = msg?.text || '';
+      }
+      
+      if(!currentMessageText) {
+        showCopyToast('Нечего копировать');
+        return;
+      }
+      
+      try {
+        await navigator.clipboard.writeText(currentMessageText);
+        showCopyToast('Сообщение скопировано');
+      } catch(err) {
+        // Fallback для старых браузеров
+        const textarea = document.createElement('textarea');
+        textarea.value = currentMessageText;
+        textarea.style.position = 'fixed';
+        textarea.style.opacity = '0';
+        document.body.appendChild(textarea);
+        textarea.select();
+        document.execCommand('copy');
+        document.body.removeChild(textarea);
+        showCopyToast('Сообщение скопировано');
+      }
+    }
+
+    function showCopyToast(text){
+      // Удаляем предыдущий toast если есть
+      const existing = document.querySelector('.copy-toast');
+      if(existing) existing.remove();
+      
+      const toast = document.createElement('div');
+      toast.className = 'copy-toast';
+      toast.innerHTML = `
+        <svg class="w-5 h-5 text-green-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/>
+        </svg>
+        ${text}
+      `;
+      document.body.appendChild(toast);
+      
+      setTimeout(() => toast.remove(), 2000);
+    }
+
+    async function deleteMessage(){
+      hideMessageContextMenu();
+      if(!currentMessageId || !currentChat) return;
+      
+      // Проверяем, что это наше сообщение
+      const snap = await database.ref(`messages/${currentChat}/${currentMessageId}`).once('value');
+      const msg = snap.val();
+      
+      if(!msg) return;
+      
+      // Позволяем удалять свои сообщения или если владелец чата
+      const isOwn = msg.senderId === currentUser.uid;
+      const isOwner = currentChatData?.owner === currentUser.uid;
+      
+      if(!isOwn && !isOwner) {
+        showToast('❌', 'Ошибка', 'Вы можете удалять только свои сообщения');
+        return;
+      }
+      
+      // Сохраняем ID сообщения для удаления
+      messageToDelete = currentMessageId;
+      
+      // Показываем кастомное окно подтверждения
+      $('confirmModal').classList.add('show');
+    }
+
+    function closeConfirmModal(){
+      $('confirmModal').classList.remove('show');
+      messageToDelete = null;
+    }
+
+    async function confirmDeleteMessage(){
+      closeConfirmModal();
+      
+      if(!messageToDelete || !currentChat) return;
+      
+      try {
+        await database.ref(`messages/${currentChat}/${messageToDelete}`).remove();
+        
+        // Удаляем элемент из DOM
+        const msgEl = document.getElementById(`msg-${messageToDelete}`);
+        if(msgEl) msgEl.remove();
+        
+        showCopyToast('Сообщение удалено');
+      } catch(err) {
+        console.error('Delete message error:', err);
+        showToast('❌', 'Ошибка', 'Не удалось удалить сообщение');
+      }
+      
+      messageToDelete = null;
+    }
+
+    // Старая функция для совместимости
+    function showReactions(e, msgId){
+      // Определяем, своё ли это сообщение
+      const msgEl = document.getElementById(`msg-${msgId}`);
+      const isOwn = msgEl && msgEl.classList.contains('out');
+      showMessageContextMenu(e, msgId, isOwn);
+    }
+
     function hideReactions(){
-      $('reactionsPicker').classList.remove('show');
+      hideMessageContextMenu();
     }
 
     function addReaction(emoji){
@@ -1694,7 +2072,18 @@
           }
         }
       });
+      
+      // Сбросить счётчик непрочитанных
       unreadCounts[chatId] = 0;
+      
+      // Обновить данные в allChats
+      const chatIndex = allChats.findIndex(c => c.id === chatId);
+      if(chatIndex !== -1){
+        allChats[chatIndex].unread = 0;
+      }
+      
+      // Перерисовать список чатов, чтобы убрать бейдж
+      renderChatList();
     }
 
     // ====== FILES ======
@@ -2521,11 +2910,17 @@
 
     document.addEventListener('keydown', (e) => {
       if(e.key === 'Escape'){
-        ['createMenuModal','newPrivateChatModal','createGroupModal','createChannelModal','accountSwitcherModal','profileModal','settingsModal'].forEach(id => closeModal(id));
+        ['createMenuModal','newPrivateChatModal','createGroupModal','createChannelModal','accountSwitcherModal','profileModal','settingsModal','editMessageModal'].forEach(id => closeModal(id));
         closeImageViewer();
-        $('reactionsPicker').classList.remove('show');
+        closeConfirmModal();
+        hideMessageContextMenu();
         closeEmoji();
       }
+    });
+
+    // Закрытие confirmModal по клику на фон
+    $('confirmModal').addEventListener('click', (e) => {
+      if(e.target.id === 'confirmModal') closeConfirmModal();
     });
 
     // Close emoji picker on outside click (Telegram-like)
