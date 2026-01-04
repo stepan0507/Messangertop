@@ -1149,6 +1149,93 @@
       }
     }
 
+    // Запрос разрешения на уведомления - вызывается после действия пользователя
+    function requestNotificationPermission() {
+      if (!('Notification' in window)) {
+        console.log('Браузер не поддерживает уведомления');
+        return;
+      }
+      
+      if (Notification.permission === 'default') {
+        // Показываем кнопку для запроса разрешения
+        showNotificationPrompt();
+      }
+    }
+
+    function showNotificationPrompt() {
+      // Создаём красивый баннер для запроса разрешения
+      const banner = document.createElement('div');
+      banner.id = 'notificationBanner';
+      banner.style.cssText = `
+        position: fixed;
+        top: 20px;
+        left: 50%;
+        transform: translateX(-50%);
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        border-radius: 16px;
+        padding: 16px 20px;
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        z-index: 1000;
+        box-shadow: 0 10px 40px rgba(102,126,234,0.4);
+        max-width: 90%;
+        animation: slideDown 0.3s ease;
+      `;
+      banner.innerHTML = `
+        <svg width="24" height="24" fill="white" viewBox="0 0 24 24">
+          <path d="M12 22c1.1 0 2-.9 2-2h-4c0 1.1.9 2 2 2zm6-6v-5c0-3.07-1.63-5.64-4.5-6.32V4c0-.83-.67-1.5-1.5-1.5s-1.5.67-1.5 1.5v.68C7.64 5.36 6 7.92 6 11v5l-2 2v1h16v-1l-2-2zm-2 1H8v-6c0-2.48 1.51-4.5 4-4.5s4 2.02 4 4.5v6z"/>
+        </svg>
+        <div style="flex:1;min-width:0;">
+          <div style="font-weight:600;font-size:14px;">Включить уведомления?</div>
+          <div style="font-size:12px;opacity:0.9;">Узнавайте о новых сообщениях</div>
+        </div>
+        <button id="allowNotifBtn" style="background:white;color:#667eea;border:none;padding:8px 16px;border-radius:10px;font-weight:600;font-size:13px;cursor:pointer;">
+          Включить
+        </button>
+        <button id="denyNotifBtn" style="background:transparent;color:white;border:1px solid rgba(255,255,255,0.3);padding:8px 12px;border-radius:10px;font-size:13px;cursor:pointer;">
+          Позже
+        </button>
+      `;
+      
+      // Добавляем анимацию
+      const style = document.createElement('style');
+      style.textContent = `
+        @keyframes slideDown {
+          from { opacity: 0; transform: translateX(-50%) translateY(-20px); }
+          to { opacity: 1; transform: translateX(-50%) translateY(0); }
+        }
+      `;
+      document.head.appendChild(style);
+      document.body.appendChild(banner);
+      
+      document.getElementById('allowNotifBtn').onclick = async () => {
+        try {
+          const permission = await Notification.requestPermission();
+          console.log('Notification permission:', permission);
+          if (permission === 'granted') {
+            showToast('🔔', 'Уведомления включены', 'Вы будете получать уведомления о новых сообщениях');
+          }
+        } catch(e) {
+          console.error('Error requesting notification permission:', e);
+        }
+        banner.remove();
+      };
+      
+      document.getElementById('denyNotifBtn').onclick = () => {
+        banner.remove();
+        // Запомним, что пользователь отказался (на 24 часа)
+        localStorage.setItem('notifPromptDismissed', Date.now().toString());
+      };
+      
+      // Автоматически скрываем через 15 секунд
+      setTimeout(() => {
+        if (document.getElementById('notificationBanner')) {
+          banner.remove();
+        }
+      }, 15000);
+    }
+
     // Разблокируем аудио при первом взаимодействии пользователя
     function unlockAudio() {
       if (audioContext && audioContext.state === 'suspended') {
@@ -1379,6 +1466,23 @@
         setupPresenceOnDisconnect();
         loadAllChats();
         setupNotificationListener();
+        
+        // Запрос разрешения на уведомления (с задержкой, чтобы не раздражать)
+        setTimeout(() => {
+          // Проверяем, не отказался ли пользователь ранее
+          const dismissed = localStorage.getItem('notifPromptDismissed');
+          if (dismissed) {
+            const dismissedTime = parseInt(dismissed);
+            // Показываем снова через 24 часа
+            if (Date.now() - dismissedTime < 24 * 60 * 60 * 1000) {
+              return;
+            }
+          }
+          
+          if ('Notification' in window && Notification.permission === 'default') {
+            showNotificationPrompt();
+          }
+        }, 3000); // Показываем через 3 секунды после входа
       } else {
         currentUser = null;
         currentUserData = null;
