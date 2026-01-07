@@ -1328,6 +1328,18 @@
               <div class="text-xs text-slate-400">Только вы можете писать</div>
             </div>
           </button>
+
+          <div class="border-t border-white/10 my-2"></div>
+
+          <button class="w-full flex items-center gap-3 p-3 hover:bg-white/5 rounded-xl" onclick="showSearchGroupsChannels()">
+            <div class="w-10 h-10 rounded-full grid place-items-center" style="background: linear-gradient(135deg, #06b6d4 0%, #3b82f6 100%);">
+              <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/></svg>
+            </div>
+            <div class="text-left">
+              <div class="font-medium">Найти группы и каналы</div>
+              <div class="text-xs text-slate-400">Присоединиться к существующим</div>
+            </div>
+          </button>
         </div>
         <button class="w-full mt-4 py-2 text-slate-400 hover:text-white" onclick="closeModal('createMenuModal')">Отмена</button>
       </div>
@@ -1420,6 +1432,9 @@
             <div class="w-2 h-2 bg-white rounded-full animate-pulse"></div>
             <span id="videoRecordingTime" class="text-white text-sm font-semibold">0:00</span>
           </div>
+          <button id="flipCameraBtn" class="absolute top-4 right-4 w-10 h-10 bg-black/50 backdrop-blur-sm rounded-full flex items-center justify-center hover:bg-black/70 transition-colors" onclick="flipCamera()" title="Переключить камеру">
+            <svg class="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/></svg>
+          </button>
         </div>
         <div class="flex gap-3">
           <button id="videoRecordBtn" class="flex-1 gradient-bg py-3 rounded-xl font-semibold hover:opacity-95 flex items-center justify-center gap-2" onclick="toggleVideoRecording()">
@@ -1436,7 +1451,7 @@
       <div class="sheet p-4 max-w-md">
         <div class="flex justify-between items-center mb-4">
           <h3 class="text-lg font-bold">🎤 Голосовое сообщение</h3>
-          <button class="icon-btn" onclick="stopVoiceMessageModal()">
+          <button class="icon-btn" onclick="stopVoiceMessageModal()"></button>
             <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
           </button>
         </div>
@@ -1464,6 +1479,25 @@
           </button>
           <button id="voiceSendBtn" class="hidden flex-1 gradient-green py-3 rounded-xl font-semibold hover:opacity-95" onclick="sendVoiceMessage()">Отправить</button>
         </div>
+      </div>
+    </div>
+
+    <!-- Search Groups and Channels Modal -->
+    <div id="searchGroupsChannelsModal" class="modal" onclick="modalBackdropClose(event, 'searchGroupsChannelsModal')">
+      <div class="sheet p-4 max-h-[80vh] flex flex-col">
+        <div class="flex justify-between items-center mb-4">
+          <h3 class="text-lg font-bold">🔍 Найти группы и каналы</h3>
+          <button class="icon-btn" onclick="closeModal('searchGroupsChannelsModal')">
+            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
+          </button>
+        </div>
+        <input id="searchGroupsChannelsInput" oninput="searchGroupsChannels()" class="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-2.5 mb-3 outline-none focus:border-violet-500" placeholder="Поиск по названию...">
+        <div class="flex gap-2 mb-3">
+          <button id="filterAllBtn" class="flex-1 py-2 px-3 rounded-lg bg-violet-600 text-white font-medium" onclick="setSearchFilter('all')">Все</button>
+          <button id="filterGroupsBtn" class="flex-1 py-2 px-3 rounded-lg bg-white/5 text-slate-400 font-medium" onclick="setSearchFilter('groups')">Группы</button>
+          <button id="filterChannelsBtn" class="flex-1 py-2 px-3 rounded-lg bg-white/5 text-slate-400 font-medium" onclick="setSearchFilter('channels')">Каналы</button>
+        </div>
+        <div id="searchGroupsChannelsResults" class="flex-1 overflow-auto scrollbar"></div>
       </div>
     </div>
 
@@ -2746,6 +2780,7 @@
       database.ref(`messages/${chatId}`).orderByChild('timestamp').on('child_added', snap => {
         const msg = snap.val();
         const msgId = snap.key;
+        console.log('New message received:', msgId, msg);
         addMessageToUI(msg, msgId);
       });
 
@@ -2791,7 +2826,41 @@
     }
 
     function addMessageToUI(msg, msgId){
+      console.log('addMessageToUI called:', msgId, msg);
       const container = $('messagesContainer');
+      
+      // Проверяем что элемент не существует уже
+      if(document.getElementById(`msg-${msgId}`)){
+        console.log('Message already exists in UI:', msgId);
+        return;
+      }
+      
+      // Системные сообщения
+      if(msg.isSystem || msg.senderId === 'system') {
+        const systemIcons = {
+          'create': '✨',
+          'join': '👋',
+          'leave': '👋',
+          'update': '✏️',
+          'delete': '🗑️',
+          'info': 'ℹ️'
+        };
+        const icon = systemIcons[msg.systemType] || 'ℹ️';
+        
+        const div = document.createElement('div');
+        div.id = `msg-${msgId}`;
+        div.className = 'system-message';
+        div.innerHTML = `
+          <div class="system-message-content">
+            <span class="system-icon">${icon}</span>
+            <span class="system-text">${escapeHtml(msg.text)}</span>
+          </div>
+        `;
+        container.appendChild(div);
+        container.scrollTop = container.scrollHeight;
+        return;
+      }
+      
       const isOwn = msg.senderId === currentUser.uid;
 
       let senderLine = '';
@@ -3608,6 +3677,25 @@
       }
     }
 
+    // ====== SYSTEM MESSAGES ======
+    async function sendSystemMessage(chatId, text, type = 'info') {
+      try {
+        const messageData = {
+          senderId: 'system',
+          text: text,
+          timestamp: firebase.database.ServerValue.TIMESTAMP,
+          isSystem: true,
+          systemType: type, // 'info', 'join', 'leave', 'create', 'update', 'delete'
+          readBy: {}
+        };
+        
+        await database.ref(`messages/${chatId}`).push(messageData);
+        await touchChatUpdatedAt(chatId);
+      } catch(err) {
+        console.error('Send system message error:', err);
+      }
+    }
+
     // ====== SEND MESSAGE ======
     async function sendMessage(e){
       e.preventDefault();
@@ -3632,7 +3720,9 @@
         text
       };
 
-      await database.ref(`messages/${currentChat}`).push(messageData);
+      console.log('Sending message to chat:', currentChat, messageData);
+      const msgRef = await database.ref(`messages/${currentChat}`).push(messageData);
+      console.log('Message sent with ID:', msgRef.key);
       await touchChatUpdatedAt(currentChat);
       closeEmoji();
     }
@@ -4009,6 +4099,7 @@
     let videoChunks = [];
     let videoRecordingInterval = null;
     let videoRecordingStartTime = 0;
+    let currentFacingMode = 'user'; // 'user' - фронтальная, 'environment' - задняя
 
     async function startVideoMessage() {
       document.getElementById('filePickerModal')?.remove();
@@ -4033,7 +4124,7 @@
           video: { 
             width: { ideal: 640 },
             height: { ideal: 640 },
-            facingMode: 'user'
+            facingMode: currentFacingMode
           }, 
           audio: true 
         });
@@ -4070,6 +4161,69 @@
         
         alert(`${errorMsg}\n\n${errorDetails}`);
         showToast('❌', 'Ошибка камеры', errorMsg);
+      }
+    }
+
+    async function flipCamera() {
+      if (!videoStream) {
+        showToast('❌', 'Ошибка', 'Камера не подключена');
+        return;
+      }
+
+      // Если идёт запись, не переключаем
+      if (videoRecorder && videoRecorder.state === 'recording') {
+        showToast('⚠️', 'Внимание', 'Остановите запись перед переключением камеры');
+        return;
+      }
+
+      try {
+        // Останавливаем текущий поток
+        videoStream.getTracks().forEach(track => track.stop());
+        
+        // Переключаем режим камеры
+        currentFacingMode = currentFacingMode === 'user' ? 'environment' : 'user';
+        
+        // Запрашиваем новый поток с другой камерой
+        videoStream = await navigator.mediaDevices.getUserMedia({ 
+          video: { 
+            width: { ideal: 640 },
+            height: { ideal: 640 },
+            facingMode: currentFacingMode
+          }, 
+          audio: true 
+        });
+        
+        // Обновляем превью
+        const videoPreview = $('videoPreview');
+        if (videoPreview) {
+          videoPreview.srcObject = videoStream;
+          await videoPreview.play();
+        }
+        
+        showToast('✅', 'Успешно', `Камера переключена на ${currentFacingMode === 'user' ? 'фронтальную' : 'заднюю'}`);
+      } catch (err) {
+        console.error('Flip camera error:', err);
+        showToast('❌', 'Ошибка', 'Не удалось переключить камеру');
+        
+        // Пытаемся вернуться к предыдущей камере
+        currentFacingMode = currentFacingMode === 'user' ? 'environment' : 'user';
+        try {
+          videoStream = await navigator.mediaDevices.getUserMedia({ 
+            video: { 
+              width: { ideal: 640 },
+              height: { ideal: 640 },
+              facingMode: currentFacingMode
+            }, 
+            audio: true 
+          });
+          const videoPreview = $('videoPreview');
+          if (videoPreview) {
+            videoPreview.srcObject = videoStream;
+            await videoPreview.play();
+          }
+        } catch (e) {
+          console.error('Failed to restore camera:', e);
+        }
       }
     }
 
@@ -4207,6 +4361,9 @@
       videoRecorder = null;
       videoChunks = [];
       window.pendingVideoBlob = null;
+      
+      // Сбрасываем режим камеры на фронтальную
+      currentFacingMode = 'user';
       
       $('videoRecordingIndicator').classList.add('hidden');
       $('videoRecordingTime').textContent = '0:00';
@@ -4686,6 +4843,23 @@
 
         await database.ref().update(updates);
 
+        // Получаем имя создателя
+        const creatorSnap = await database.ref(`users/${currentUser.uid}`).once('value');
+        const creatorName = creatorSnap.val()?.name || 'Пользователь';
+
+        // Системное сообщение о создании группы
+        await sendSystemMessage(groupId, `${creatorName} создал(а) группу "${name}"`, 'create');
+
+        // Системное сообщение о добавленных участниках
+        if(selectedGroupMembers.length > 0) {
+          const memberNames = [];
+          for(const uid of selectedGroupMembers) {
+            const snap = await database.ref(`users/${uid}`).once('value');
+            memberNames.push(snap.val()?.name || 'Пользователь');
+          }
+          await sendSystemMessage(groupId, `${creatorName} добавил(а): ${memberNames.join(', ')}`, 'join');
+        }
+
         closeModal('createGroupModal');
         selectedGroupMembers = [];
         showToast('✅','Успешно','Группа создана');
@@ -4721,6 +4895,16 @@
         updates[`userChats/${currentUser.uid}/${channelId}`] = { type:'channel', updatedAt: firebase.database.ServerValue.TIMESTAMP };
 
         await database.ref().update(updates);
+
+        // Получаем имя создателя
+        const creatorSnap = await database.ref(`users/${currentUser.uid}`).once('value');
+        const creatorName = creatorSnap.val()?.name || 'Пользователь';
+
+        // Системное сообщение о создании канала
+        await sendSystemMessage(channelId, `📢 Канал "${name}" создан`, 'create');
+        if(description) {
+          await sendSystemMessage(channelId, `📝 Описание: ${description}`, 'info');
+        }
 
         closeModal('createChannelModal');
         showToast('✅','Успешно','Канал создан');
@@ -6028,6 +6212,138 @@
     // ====== INIT ======
     loadSavedAccounts();
     renderEmojiCategory('smileys');
+
+    // ====== SEARCH GROUPS AND CHANNELS ======
+    let searchFilter = 'all';
+    let allGroupsChannels = [];
+
+    async function showSearchGroupsChannels(){
+      closeModal('createMenuModal');
+      searchFilter = 'all';
+      $('searchGroupsChannelsInput').value = '';
+      showModal('searchGroupsChannelsModal');
+      await loadAllGroupsChannels();
+    }
+
+    async function loadAllGroupsChannels(){
+      try {
+        allGroupsChannels = [];
+        
+        // Загружаем все группы
+        const groupsSnap = await database.ref('groups').once('value');
+        const groups = groupsSnap.val() || {};
+        for(const [id, data] of Object.entries(groups)){
+          allGroupsChannels.push({
+            id,
+            type: 'group',
+            name: data.name,
+            description: data.description || '',
+            memberCount: Object.keys(data.members || {}).length,
+            owner: data.owner,
+            members: data.members || {}
+          });
+        }
+
+        // Загружаем все каналы
+        const channelsSnap = await database.ref('channels').once('value');
+        const channels = channelsSnap.val() || {};
+        for(const [id, data] of Object.entries(channels)){
+          allGroupsChannels.push({
+            id,
+            type: 'channel',
+            name: data.name,
+            description: data.description || '',
+            memberCount: Object.keys(data.members || {}).length,
+            owner: data.owner,
+            members: data.members || {}
+          });
+        }
+
+        renderSearchResults();
+      } catch(err){
+        console.error('Load groups/channels error:', err);
+        showToast('❌','Ошибка','Не удалось загрузить список');
+      }
+    }
+
+    function setSearchFilter(filter){
+      searchFilter = filter;
+      
+      // Обновляем кнопки
+      $('filterAllBtn').className = 'flex-1 py-2 px-3 rounded-lg font-medium ' + (filter === 'all' ? 'bg-violet-600 text-white' : 'bg-white/5 text-slate-400');
+      $('filterGroupsBtn').className = 'flex-1 py-2 px-3 rounded-lg font-medium ' + (filter === 'groups' ? 'bg-violet-600 text-white' : 'bg-white/5 text-slate-400');
+      $('filterChannelsBtn').className = 'flex-1 py-2 px-3 rounded-lg font-medium ' + (filter === 'channels' ? 'bg-violet-600 text-white' : 'bg-white/5 text-slate-400');
+      
+      renderSearchResults();
+    }
+
+    function searchGroupsChannels(){
+      renderSearchResults();
+    }
+
+    function renderSearchResults(){
+      const query = $('searchGroupsChannelsInput').value.toLowerCase();
+      const container = $('searchGroupsChannelsResults');
+      
+      let filtered = allGroupsChannels.filter(item => {
+        if(searchFilter === 'groups' && item.type !== 'group') return false;
+        if(searchFilter === 'channels' && item.type !== 'channel') return false;
+        if(query && !item.name.toLowerCase().includes(query) && !item.description.toLowerCase().includes(query)) return false;
+        return true;
+      });
+
+      if(!filtered.length){
+        container.innerHTML = '<div class="p-6 text-center text-slate-500">Ничего не найдено</div>';
+        return;
+      }
+
+      container.innerHTML = filtered.map(item => {
+        const isMember = item.members[currentUser.uid];
+        const icon = item.type === 'group' ? '👥' : '📢';
+        const typeText = item.type === 'group' ? 'Группа' : 'Канал';
+        
+        return `
+          <div class="flex items-center gap-3 p-3 hover:bg-white/5 rounded-xl border-b border-white/5">
+            <div class="w-12 h-12 gradient-${item.type === 'group' ? 'green' : 'orange'} rounded-full grid place-items-center text-2xl">
+              ${icon}
+            </div>
+            <div class="flex-1 min-w-0">
+              <div class="font-medium truncate">${escapeHtml(item.name)}</div>
+              <div class="text-xs text-slate-400">${typeText} • ${item.memberCount} ${item.memberCount === 1 ? 'участник' : 'участников'}</div>
+              ${item.description ? `<div class="text-xs text-slate-500 truncate mt-1">${escapeHtml(item.description)}</div>` : ''}
+            </div>
+            ${isMember 
+              ? '<button class="px-4 py-2 rounded-lg bg-white/5 text-slate-400 text-sm font-medium" onclick="openChat(\''+item.id+'\',\''+item.type+'\'); closeModal(\'searchGroupsChannelsModal\')">Открыть</button>'
+              : '<button class="px-4 py-2 rounded-lg gradient-bg text-white text-sm font-medium hover:opacity-95" onclick="joinGroupChannel(\''+item.id+'\',\''+item.type+'\')">Вступить</button>'
+            }
+          </div>
+        `;
+      }).join('');
+    }
+
+    async function joinGroupChannel(id, type){
+      try {
+        const updates = {};
+        updates[`${type}s/${id}/members/${currentUser.uid}`] = true;
+        updates[`userChats/${currentUser.uid}/${id}`] = { type, updatedAt: firebase.database.ServerValue.TIMESTAMP };
+        
+        await database.ref().update(updates);
+
+        // Получаем имя пользователя
+        const userSnap = await database.ref(`users/${currentUser.uid}`).once('value');
+        const userName = userSnap.val()?.name || 'Пользователь';
+
+        // Системное сообщение о присоединении
+        await sendSystemMessage(id, `${userName} присоединился(лась)`, 'join');
+
+        showToast('✅','Успешно',`Вы вступили в ${type === 'group' ? 'группу' : 'канал'}`);
+        await loadAllGroupsChannels();
+        await loadAllChats();
+      } catch(err){
+        console.error('Join error:', err);
+        showToast('❌','Ошибка','Не удалось вступить');
+      }
+    }
 
   </script>
 
